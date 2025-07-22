@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Create Post</title>
+    <link type="text/css" href="{{ url_for('static', path='/styles.css') }}" rel="stylesheet" />
+    <script type="module" src="{{ url_for('static', path='/firebase-login.js') }}"></script>
+</head>
+<body>
+    {% extends "base.html" %}
+
+    {% block title %}Create Post{% endblock %}
+
+    {% block content %}
+        {% if user_token %}
+            <div class="create-post-container">
+                <h1>Create New Post</h1>
+                
+                {% if request.query_params.get('error') == 'invalid_image' %}
+                    <p class="error">Only JPG or PNG images are allowed</p>
+                {% endif %}
+                
+                <form action="/create-post" method="post" enctype="multipart/form-data">
+                    <div class="form-group">
+                        <label for="image">Select Image (JPG/PNG):</label>
+                        <input type="file" id="image" name="image" accept="image/jpeg, image/png" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="caption">Caption:</label>
+                        <textarea id="caption" name="caption" rows="4" required></textarea>
+                    </div>
+                    
+                    <button type="submit" class="submit-btn">Post</button>
+                </form>
+            </div>
+        {% endif %}
+    {% endblock %}
+</body>
+</html>

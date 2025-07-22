@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{{ profile_user.username }}'s Following</title>
+    <link type="text/css" href="{{ url_for('static', path='/styles.css') }}" rel="stylesheet" />
+    <script type="module" src="{{ url_for('static', path='/firebase-login.js') }}"></script>
+</head>
+<body>
+    <div id="login-box" hidden="true">
+        Email: <input type="email" name="" id="email"></br>
+        Password: <input type="password" name="" id="password"></br>
+        <button id="login">Login</button>
+        <button id="sign-up">Sign Up</button>
+    </div>
+    <button id="sign-out" hidden="true">Sign out</button>
+
+    {% if user_token %}
+        <div class="list-header">
+            <h1>{{ profile_user.username }}'s Following</h1>
+            <a href="/profile/{{ profile_user.username }}" class="back-link">← Back to Profile</a>
+        </div>
+        
+        <div class="users-list">
+            {% for user in users %}
+                <div class="user-card">
+                    <a href="/profile/{{ user.username }}">
+                        <h3>{{ user.username }}</h3>
+                    </a>
+                    <p>Member since {{ user.created_at.strftime('%b %Y') }}</p>
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+</body>
+</html>

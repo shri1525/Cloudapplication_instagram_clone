@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{% block title %}Instagram Clone{% endblock %}</title>
+    <link type="text/css" href="{{ url_for('static', path='/styles.css') }}" rel="stylesheet" />
+    <script type="module" src="{{ url_for('static', path='/firebase-login.js') }}"></script>
+    {% block extra_scripts %}{% endblock %}
+</head>
+<body>
+
+    {% if user_info %}
+    <header class="app-header">
+        <div class="header-content">
+            <a href="/" class="logo-link">
+                <h1 class="logo">Instagram Clone</h1>
+            </a>
+            <div class="search-box">
+                <form action="/search" method="get">
+                    <input type="text" name="q" placeholder="Search users..." value="{{ query or '' }}">
+                    <button type="submit">Search</button>
+                </form>
+            </div>
+            <nav class="nav-links">
+                <a href="/">Home</a>
+                <a href="/profile/{{ user_info.username }}">Profile</a>
+                <a href="/create-post">Create Post</a>
+            </nav>
+        </div>
+    </header>
+    {% endif %}
+
+    <div id="login-box" hidden="true">
+        Email: <input type="email" name="" id="email"><br>
+        Password: <input type="password" name="" id="password"><br>
+        <button id="login">Login</button>
+        <button id="sign-up">Sign Up</button>
+    </div>
+    <button id="sign-out" hidden="true">Sign out</button>
+
+    <main class="main-content">
+        {% block content %}{% endblock %}
+    </main>
+
+    {% block scripts %}{% endblock %}
+</body>
+</html>

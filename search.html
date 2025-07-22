@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Search Users</title>
+    <link type="text/css" href="{{ url_for('static', path='/styles.css') }}" rel="stylesheet" />
+    <script type="module" src="{{ url_for('static', path='/firebase-login.js') }}"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+</head>
+<body>
+    {% extends "base.html" %}
+
+    {% block title %}Search Users{% endblock %}
+    
+    {% block content %}
+        {% if user_token %}
+            <div class="search-container">
+                <h1>Search Users</h1>
+                
+                <form action="/search" method="get" class="search-form">
+                    <div class="search-input-container">
+                        <i class="fas fa-search search-icon"></i>
+                        <input type="text" name="q" placeholder="Search by username..." 
+                               value="{{ query or '' }}" required>
+                        {% if query %}
+                            <button type="button" class="clear-search" onclick="clearSearch()">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        {% endif %}
+                    </div>
+                </form>
+                
+                {% if query %}
+                    <div class="search-results">
+                        {% if results %}
+                            <h2>Results for "{{ query }}"</h2>
+                            <div class="users-list">
+                                {% for user in results %}
+                                    <div class="user-result">
+                                        <a href="/profile/{{ user.username }}" class="user-link">
+                                            <div class="user-pic">
+                                                {% if user.profile_pic %}
+                                                    <img src="{{ user.profile_pic }}" alt="{{ user.username }}">
+                                                {% else %}
+                                                    <div class="default-pic">{{ user.username|first|upper }}</div>
+                                                {% endif %}
+                                            </div>
+                                            <div class="user-info">
+                                                <span class="username">{{ user.username }}</span>
+                                            </div>
+                                        </a>
+                                        
+                                        {% if not is_own_profile %}
+                                            <button class="follow-btn {% if user.id in current_user.following %}following{% endif %}" 
+                                                    data-user-id="{{ user.id }}">
+                                                {% if user.id in current_user.following %}Following{% else %}Follow{% endif %}
+                                            </button>
+                                        {% endif %}
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            <div class="no-results">
+                                <i class="fas fa-user-slash"></i>
+                                <p>No users found matching "{{ query }}"</p>
+                            </div>
+                        {% endif %}
+                    </div>
+                {% endif %}
+            </div>
+        {% endif %}
+    {% endblock %}
+    
+    {% block scripts %}
+        <script>
+            function clearSearch() {
+                document.querySelector('input[name="q"]').value = '';
+                document.querySelector('.search-form').submit();
+            }
+            
+            document.addEventListener('DOMContentLoaded', function() {
+                // Handle follow button clicks
+                document.querySelectorAll('.follow-btn').forEach(btn => {
+                    btn.addEventListener('click', async function(e) {
+                        e.preventDefault();
+                        const userId = this.dataset.userId;
+                        const isFollowing = this.classList.contains('following');
+                        
+                        try {
+                            const response = await fetch(`/follow/${userId}`, {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json'
+                                }
+                            });
+                            
+                            const result = await response.json();
+                            
+                            if (result.status === 'success') {
+                                // Update button state
+                                this.textContent = isFollowing ? 'Follow' : 'Following';
+                                this.classList.toggle('following');
+                            }
+                        } catch (error) {
+                            console.error('Error:', error);
+                        }
+                    });
+                });
+                
+                // Live search as user types
+                const searchInput = document.querySelector('input[name="q"]');
+                if (searchInput) {
+                    let debounceTimer;
+                    
+                    searchInput.addEventListener('input', function() {
+                        clearTimeout(debounceTimer);
+                        debounceTimer = setTimeout(() => {
+                            if (this.value.trim().length > 0) {
+                                document.querySelector('.search-form').submit();
+                            }
+                        }, 300);
+                    });
+                }
+            });
+        </script>
+    {% endblock %}
+</body>
+</html>

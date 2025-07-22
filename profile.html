@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{{ profile_user.username }}'s Profile</title>
+    <link type="text/css" href="{{ url_for('static', path='/styles.css') }}" rel="stylesheet" />
+    <script type="module" src="{{ url_for('static', path='/firebase-login.js') }}"></script>
+</head>
+<body>
+    {% extends "base.html" %}
+
+    {% block title %}{{ profile_user.username }}'s Profile{% endblock %}
+
+    {% block content %}
+        {% if user_token %}
+            <div class="profile-header">
+                <h1>{{ profile_user.username }}'s Profile</h1>
+                
+                <div class="profile-stats">
+                    <span>{{ posts|length }} posts</span>
+                    <a href="/followers/{{ profile_user.username }}">{{ profile_user.followers|length }} followers</a>
+                    <a href="/following/{{ profile_user.username }}">{{ profile_user.following|length }} following</a>
+                </div>
+
+                {% if is_own_profile %}
+                    <a href="/create-post" class="create-post-btn">Create Post</a>
+                {% else %}
+                    <button class="follow-btn" 
+                            data-user-id="{{ profile_user.id }}" 
+                            data-is-following="{{ 'true' if is_following else 'false' }}">
+                        {{ 'Unfollow' if is_following else 'Follow' }}
+                    </button>
+                {% endif %}
+            </div>
+
+            <div class="posts-grid">
+                {% for post in posts %}
+                    <div class="post">
+                        <img src="{{ post.ImageUrl }}" alt="Post image" class="post-image">
+                        <p class="post-caption">{{ post.Caption }}</p>
+                        <p class="post-date">{{ post.Date.strftime('%b %d, %Y') }}</p>
+                        
+                        <!-- Comments Section -->
+                        <div class="post-comments" data-post-id="{{ post.id }}">
+                            <div class="comments-container">
+                                {% if post.Comments %}
+                                    {% for comment in post.Comments[:5] %}
+                                        <div class="comment">
+                                            <strong>{{ comment.username }}</strong>
+                                            <span>{{ comment.text }}</span>
+                                            <small>
+                                                {% if comment.timestamp is string %}
+                                                    {{ comment.timestamp }}
+                                                {% else %}
+                                                    {{ comment.timestamp.strftime('%b %d, %Y %H:%M') }}
+                                                {% endif %}
+                                            </small>
+                                        </div>
+                                    {% endfor %}
+                                {% endif %}
+                            </div>
+                            
+                            <div class="comment-form">
+                                <input type="text" placeholder="Add a comment..." maxlength="200" 
+                                       class="comment-input">
+                                <button class="comment-submit">Post</button>
+                            </div>
+                            
+                            {% if post.Comments and post.Comments|length > 5 %}
+                                <button class="show-more-comments">
+                                    Show all comments ({{ post.Comments|length }})
+                                </button>
+                            {% endif %}
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+    {% endblock %}
+
+    {% block scripts %}
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Follow button functionality
+        const followBtn = document.querySelector('.follow-btn');
+        if (followBtn) {
+            followBtn.addEventListener('click', async function() {
+                const userId = this.dataset.userId;
+                const isFollowing = this.dataset.isFollowing === 'true';
+
+                try {
+                    const response = await fetch(`/follow/${userId}`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        }
+                    });
+
+                    const result = await response.json();
+
+                    if (result.status === 'success') {
+                        this.textContent = isFollowing ? 'Follow' : 'Unfollow';
+                        this.dataset.isFollowing = (!isFollowing).toString();
+
+                        const followerCountEl = document.querySelector('.profile-stats a:nth-child(2)');
+                        if (followerCountEl) {
+                            followerCountEl.textContent = `${result.follower_count} followers`;
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error:', error);
+                }
+            });
+        }
+
+        // Comments functionality
+        document.querySelectorAll('.post-comments').forEach(commentsSection => {
+            const postId = commentsSection.dataset.postId;
+            loadComments(postId);
+            
+            // Handle comment submission
+            const commentInput = commentsSection.querySelector('.comment-input');
+            const submitBtn = commentsSection.querySelector('.comment-submit');
+            
+            submitBtn.addEventListener('click', () => {
+                const commentText = commentInput.value.trim();
+                if (commentText) {
+                    addComment(postId, commentText);
+                    commentInput.value = '';
+                }
+            });
+            
+            // Handle show more comments
+            const showMoreBtn = commentsSection.querySelector('.show-more-comments');
+            if (showMoreBtn) {
+                showMoreBtn.addEventListener('click', () => {
+                    loadComments(postId, true);
+                    showMoreBtn.style.display = 'none';
+                });
+            }
+        });
+        
+        async function loadComments(postId, showAll = false) {
+            try {
+                const container = document.querySelector(`.post-comments[data-post-id="${postId}"] .comments-container`);
+                container.innerHTML = '<div class="loading">Loading comments...</div>';
+                
+                const response = await fetch(`/get-comments/${postId}`);
+                const result = await response.json();
+                
+                if (result.status === 'success') {
+                    container.innerHTML = '';
+                    
+                    const commentsToDisplay = showAll ? result.comments : result.comments.slice(0, 5);
+                    
+                    commentsToDisplay.forEach(comment => {
+                        const commentEl = document.createElement('div');
+                        commentEl.className = 'comment';
+                        commentEl.innerHTML = `
+                            <strong>${comment.username}</strong>
+                            <span>${comment.text}</span>
+                            <small>${formatTimestamp(comment.timestamp)}</small>
+                        `;
+                        container.appendChild(commentEl);
+                    });
+                    
+                    if (!showAll && result.total_comments > 5) {
+                        const showMoreBtn = document.querySelector(`.post-comments[data-post-id="${postId}"] .show-more-comments`);
+                        if (showMoreBtn) {
+                            showMoreBtn.textContent = `Show all comments (${result.total_comments})`;
+                            showMoreBtn.style.display = 'block';
+                        }
+                    }
+                }
+            } catch (error) {
+                const container = document.querySelector(`.post-comments[data-post-id="${postId}"] .comments-container`);
+                container.innerHTML = '<div class="error">Failed to load comments</div>';
+                console.error('Error loading comments:', error);
+            }
+        }
+        
+        async function addComment(postId, commentText) {
+            const submitBtn = document.querySelector(`.post-comments[data-post-id="${postId}"] .comment-submit`);
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Posting...';
+            
+            try {
+                const response = await fetch(`/add-comment/${postId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: `comment_text=${encodeURIComponent(commentText)}`
+                });
+                
+                const result = await response.json();
+                
+                if (result.status === 'success') {
+                    loadComments(postId);
+                } else {
+                    alert('Failed to add comment: ' + (result.message || 'Unknown error'));
+                }
+            } catch (error) {
+                console.error('Error adding comment:', error);
+                alert('Failed to add comment. Please try again.');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Post';
+            }
+        }
+        
+        function formatTimestamp(timestamp) {
+    try {
+        // If it's already a formatted string, return it
+        if (typeof timestamp === 'string') {
+            // Try to parse it if it's in ISO format
+            try {
+                const date = new Date(timestamp);
+                if (!isNaN(date.getTime())) {
+                    return date.toLocaleString();
+                }
+                return timestamp;
+            } catch {
+                return timestamp;
+            }
+        }
+        // If it's a date object, format it
+        return timestamp.toLocaleString();
+    } catch (e) {
+        console.error('Error formatting timestamp:', e);
+        return '';
+    }
+}
+    });
+    </script>
+    {% endblock %}
+</body>
+</html>
